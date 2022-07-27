@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="64717e72-9e6d-4aad-9486-b48e89f147d7" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="anypointmq-depth-api-request">
+		<http:listener doc:name="Listener" doc:id="972557ae-0d90-4bac-af03-2f4f85ff9bc6" config-ref="HTTP_Listener_config" path="/queueInfo" />
+		<logger level="INFO" doc:name="Start" doc:id="90828e48-3e27-4f06-b5a7-6dfdefcb1552" message='#["Management/Queue flow Started."]' />
+		<choice doc:name="Choice" doc:id="a4acbb5f-fb6c-42b5-91b7-9b4d82ffe8da" >
+			<when expression="#[attributes.queryParams.queue?]">
+				<set-variable value="#[attributes.queryParams.queue]" doc:name="Set Queue Name" doc:id="ea26bab3-7d5e-44e7-8012-1f47ae15b961" variableName="queueName" />
+			</when>
+			<otherwise >
+				<set-variable value="#[attributes.queryParams.messages]" doc:name="Set message Value" doc:id="7c0ee15c-ca7b-4bba-9912-2119e26b4e7d" variableName="message"/>
+			</otherwise>
+		</choice>
+		<flow-ref doc:name="anypointmq-depth-start" doc:id="06d58dfe-0fc1-4760-9c4d-2bdb9275a33a" name="anypointmq-depth-start"/>
+		
+		<logger level="INFO" doc:name="Logger" doc:id="60cfa605-981a-405a-8cd2-812d779ce12a" message="#[payload]" />
+    </flow>
+	
+	<flow name="anypointmq-depth-Flow" doc:id="8424f034-9060-44c3-b0be-26d88f133488" >
+		<scheduler doc:name="Scheduler" doc:id="2ce46bf1-78fb-473a-99aa-3db14f98ea9c" doc:description="Scheduler can be disable for testing listener flow testing purpose.">
+			<scheduling-strategy >
+				<fixed-frequency frequency="${platform.schedule_time}" timeUnit="MINUTES" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Log time" doc:id="f0233437-5953-45d0-ae3a-8b7747eafe1a" message="Schedule started at: #[now()]" />
+		<flow-ref doc:name="anypointmq-depth-start" doc:id="71c9c369-b383-4029-bc3c-105684d0da0f" name="anypointmq-depth-start" />
+		<logger level="INFO" doc:name="End" doc:id="8831754f-6819-4359-824a-c65b87ced2fc" message="End of the Flow"/>
+	</flow>
+	<sub-flow name="anypointmq-depth-start" doc:id="93c7616a-b873-4008-b9fd-8ea87b5dc270" >
+		<flow-ref doc:name="anypointmq-login" doc:id="52b419c4-50ee-45c4-8f52-46bcdf612363" name="anypointmq-login" />
+		<flow-ref doc:name="Set Business Groups" doc:id="107a0a93-1896-47eb-bb21-6d5538ac7afd" name="set-business-groups" />
+		<parallel-foreach doc:name="Parallel For Each Business Groups" doc:id="55d250df-27fa-4282-9b9d-e27b715dc725" collection="#[vars.businessGroups]" >
+			<set-variable value="#[payload.id]" doc:name="Set Business Group Id" doc:id="b79b10fd-2cbb-40fd-a5e3-abc0764878f4" variableName="businessGroupId" />
+			<flow-ref doc:name="Validate Business Group" doc:id="016025ed-9940-4f55-8b4b-3124d7a1e5ab" name="validate-business-group" />
+			<logger level="INFO" doc:name="Log Business Group Name" doc:id="aacd5330-bf6a-4173-a7a7-de440328a263" message="Processing Business Group : #[payload.name]" />
+			<flow-ref doc:name="set Env" doc:id="dd01b6bb-d8a3-4150-b074-2fa18c2de1d9" name="set-environment" />
+			<parallel-foreach doc:name="Parallel For Each Environment" doc:id="06d57975-bb04-4a7d-9273-1ea5281abc33" collection="#[payload.data]" >
+				<set-variable value="#[payload.id]" doc:name="Set env_id" doc:id="9accaac6-5545-4bad-a175-39b75e5842d9" variableName="env_id" />
+				<flow-ref doc:name="Validate Environment ID" doc:id="b038c826-527b-4ee3-bfb6-25023bae2bb1" name="validate-environment" />
+				<logger level="INFO" doc:name="Environment" doc:id="3d6106c2-bada-46f2-9f1a-21757d65eff7" message='"Processing Environment : "  #[payload.name]' />
+				<try doc:name="try" doc:id="754a2194-6a68-4585-a50a-e535289d83ab" >
+					<flow-ref doc:name="queue-names" doc:id="3ca475ea-fd7f-4206-830c-07478e6edba0" name="queue-names" />
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1d659375-37b7-430b-87cf-62c89419f7a4" >
+							<logger level="INFO" doc:name="Log BusinessGroup" doc:id="9f3197ed-4d60-4e46-8bcb-d9df501f1555" message='#["No Environments found for "]' />
+							<logger level="INFO" doc:name="BusinessGroup" doc:id="f76bbdc9-f551-45e0-b206-13d89622f280" message='#[write(vars.businessGroupId,"text/plain")]' />
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</parallel-foreach>
+			<logger level="INFO" doc:name="BG Complete" doc:id="6970e0fe-11d3-4735-b087-fef3087a2b3b" message='#["Completed Processing Business Group : "]' />
+			<logger level="INFO" doc:name="BG" doc:id="6e759c0c-9573-4731-9224-162261c31277" message='#[write(vars.businessGroupId,"text/plain")]' />
+		</parallel-foreach>
+		<ee:transform doc:name="Final Results" doc:id="cedb9543-910f-4d1f-b46c-d4dbaef3c1ec" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+payload..payload..payload..payload map (
+    if(isEmpty($.Queues)) null else $
+)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="SUCCESS" doc:id="8644d606-86cd-4e2c-b304-6c879ee0bb84" message='#[" PROCESSING SUCCESS! "]' />
+	</sub-flow>
+	<sub-flow name="anypointmq-login" doc:id="9c4716a0-7883-4f00-acd5-5cc221be39a9" >
+		<ee:transform doc:name="Set Login credentials" doc:id="931b52a5-6b33-4518-ba51-fd6e9b87fdb8" >
+			<ee:message >
+				<ee:set-payload resource="mappings/login-mapping.dwl" />
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="Request Token" doc:id="188bb926-d2cb-4124-a1bb-90822ac93fb7" config-ref="HTTP_Platform_Request_Config" path="accounts/api/v2/oauth2/token">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="Success" doc:id="b4331ffa-4e89-488e-9923-0f63496e0c0c" message="--- Anypoint Platform Login --- Success" />
+		<set-variable value="#['Bearer ' ++ payload.access_token]" doc:name="Set Access Token" doc:id="5badf6a0-77b4-4efb-bfb5-7b887467edfc" variableName="bearerToken" />
+	</sub-flow>
+	<sub-flow name="set-business-groups" doc:id="8bbb17c1-1d98-4a8b-aa36-caede2752183" >
+		<http:request method="GET" doc:name="Request Business Groups" doc:id="6dad01a3-96c8-4155-9038-2c8fe751590d" config-ref="HTTP_Platform_Request_Config" path="/accounts/api/me">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : vars.bearerToken
+}]]]></http:headers>
+		</http:request>
+		<set-variable value="#[sizeOf(payload.user.memberOfOrganizations)]" doc:name="Set Business Group Count" doc:id="4903b764-24f3-4ce2-a546-779d2af76ccb" variableName="businessGroupCount" />
+		<logger level="INFO" doc:name="bussinessGroups" doc:id="4cc32d86-3daa-48bd-bcb1-3a4a4e4ee236" message="Found #[vars.businessGroupCount] Business Groups" />
+		<set-variable value="#[payload.user.memberOfOrganizations]" doc:name="Set Business Groups" doc:id="6270d588-764c-4353-b4c3-09f27141bfab" variableName="businessGroups" />
+	</sub-flow>
+	<sub-flow name="set-environment" doc:id="b6acc4ac-9ffc-4761-9191-563275b8bf29" >
+		<http:request method="GET" doc:name="Get Environments" doc:id="fbf2f951-4a8b-4d1a-bac3-7f0efca7f554" path="#['/accounts/api/organizations/' ++ vars.businessGroupId ++ '/environments']" config-ref="HTTP_Platform_Request_Config">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : vars.bearerToken
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="Log Environments" doc:id="d4fdea82-deaf-4f70-9ac2-e548a57e59bb" message="Found following Environments: #[payload.total] " />
+	</sub-flow>
+	<sub-flow name="queue-names" doc:id="3ba2ba79-cbee-4934-a1e8-7456e93282b1">
+		<ee:transform doc:name="Get Regions" doc:id="5e0205e4-be17-4465-8181-0de7a9f1c5b8">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+p('platform.regions') splitBy(",")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<parallel-foreach doc:name="Parallel For Each" doc:id="08b5da4b-2f69-4385-84ac-b28e2cd45e40" collection="#[payload]">
+			<set-variable value="#[payload]" doc:name="Set region" doc:id="ea15d66a-f15c-43b9-a049-3eaf5e9b5174" variableName="region" />
+			<logger level="INFO" doc:name="Log Region" doc:id="fdd7531b-e279-4085-b7ca-1e562e7f3c59" message='#["BusinessGroupID: " ++ vars.businessGroupId ++ " || EnvironementID: " ++ vars.env_id]' />
+			<logger level="INFO" doc:name="Log REGION" doc:id="a2ba71b3-c9b0-4250-bdd5-eefdf4c2c5f0" message='#["Region: "  ++ vars.region]' />
+			<flow-ref name="get-queues" doc:name="Get Queues" />
+			<flow-ref doc:name="check_Scheduler_or_Request" doc:id="85fd45dd-7165-44a4-96c3-01b6bea40e53" name="check_Scheduler_or_Request" />
+		</parallel-foreach>
+	</sub-flow>
+	<sub-flow name="get-queues">
+		<flow-ref doc:name="platform login" doc:id="4a9a3b59-36b1-44ec-a87c-515b37ac3352" name="anypoint-platform-queues-login"/>
+		<http:request method="GET" doc:name="Request Queue Names" doc:id="573038f5-51ad-4475-9331-148061875ad4" path="/mq/admin/api/v1/organizations/{orgId}/environments/{env_id}/regions/{region}/destinations" config-ref="HTTP_Platform_Request_Config">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.queue_token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"orgId" : vars.businessGroupId,
+	"region" : vars.region,
+	"env_id" : vars.env_id
+}]]]></http:uri-params>
+		</http:request>
+		<logger level="INFO" message="Found Queues count: #[sizeOf(payload)]" />
+	</sub-flow>
+	<sub-flow name="anypoint-platform-queues-login" doc:id="d4b8deda-a763-485e-99f0-75dc24071924" >
+		<http:request method="POST" doc:name="Platform Login" doc:id="eb3e20e3-f320-42e4-9329-25dec7c6437d" config-ref="HTTP_Platform_Request_Config" path="/accounts/login">
+			<http:body ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    "username":  p('platform.username'),
+    "password":  p('platform.password')
+}]]]></http:body>
+		</http:request>
+		<set-variable value="#[payload.access_token]" doc:name="Set queue_token" doc:id="be8a11d9-ea7c-4fc6-96cd-c15da3443c17" variableName="queue_token"/>
+	</sub-flow>
+	<sub-flow name="check_Scheduler_or_Request" doc:id="8fc031e5-e411-4ed2-9a36-0cbefa39326b" >
+		<choice doc:name="Check Scheduler or Request" doc:id="31b82e31-73e6-4d52-916e-0c0a428b7ac7">
+			<when expression="#[vars.queueName != null]">
+				<ee:transform doc:name="Filter only Requested Queue" doc:id="25c119b3-2e8d-4982-b24a-bcb0eb580452">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map (if($.queueId == vars.queueName) $ else null) filter ((item, index) -> item != null)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+					<flow-ref name="queue_messages_count" doc:name="Get Queue Message Count" doc:id="312c7c6c-7181-4772-b35a-7c872b5453a0" />
+<!-- 					<flow-ref doc:name="check Empty payload" doc:id="c2604f40-45ce-4f71-b162-10c222ff7688" name="checkEmptypayload" />
+ -->			</when>
+				<when expression='#[vars.message == "true"]'>
+					<logger level="INFO" doc:name="Queues with Msgs" doc:id="b00fc589-c528-4b59-b3c9-5f1c47a13625" message='#[" QUEUES HOLDING MESSAGES :: " ++ write(payload,"appliction/json") as String]' />
+					<logger level="INFO" doc:name="log BG and ENV" doc:id="8fe5053c-2464-467b-9007-6a03a0b19786" message='#[" BusinessGroup: " ++ vars.businessGroupId ++ " Environment: " ++ vars.env_id]'/>
+				<logger level="INFO" doc:name="Log region" doc:id="9d120564-ced1-4e76-8696-2701dd12423c" message='#[" Region: " ++ vars.region]' />
+					<flow-ref doc:name="Get Queue Message Count" doc:id="d5369992-aef1-48c0-a4e9-6ef4e956127a" name="queue_messages_count" />
+<!-- 					<flow-ref doc:name="check Empty payload" doc:id="d7200261-55c3-4b77-9159-d4fad9b46571" name="checkEmptypayload" />
+ -->				</when>
+				<otherwise>
+				<logger level="INFO" doc:name="Log Scheduler" doc:id="0c4f0628-dfb1-446c-ad24-01c58e12bb41" message='#["Scheduler processing in getting Queue Messages Count."]' />
+					<flow-ref doc:name="Get Queue Message Count" doc:id="18cd10c7-3a59-49fc-8185-2a5596e5e80e" name="queue_messages_count" />
+					<choice doc:name="Choice" doc:id="b1bd52d4-e33c-41bc-a5e6-ab70fd94395c">
+				<when expression="#[isEmpty(payload.Queues)]">
+					<logger level="INFO" doc:name="END Logger" doc:id="47974c85-c94a-410e-baf1-6c915f8ea412" message='#[" NO QUEUES HAVING NO MESSAGES :: " ++ write(payload,"appliction/json") as String ++ " BusinessGroup: " ++ vars.businessGroupId ++ " Environment: " ++ vars.env_id ++ " Region: " ++ vars.region]' />
+				</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Log Queue" doc:id="6781d8ae-4b04-4d85-a786-ea844da31335" message='#[" QUEUES HOLDING MESSAGES :: " ++ write(payload,"appliction/json") as String]' />
+							<logger level="INFO" doc:name="End Logger" doc:id="d459cca8-35a4-4424-a04d-41fca1d2fd6e" message='#[" BusinessGroup: " ++ vars.businessGroupId ++ " Environment: " ++ vars.env_id]' />
+				<logger level="INFO" doc:name="Log Region" doc:id="b172521b-291f-4dda-ab9f-f22f905c26c7" message='#[" Region: " ++ vars.region]' />
+							<choice doc:name="Choice" doc:id="bedc9630-f910-45a5-8efd-2a26be22865d">
+						<when expression="#[max(payload.Queues.messages) &gt;= p('platform.threshold')]">
+							<ee:transform doc:name="Filter Queues based on ThresHold Count" doc:id="dca1ecba-bc97-4603-b04e-4dee8cce35b7">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"BusinessGroup": vars.businessGroupId,
+	"Environment": vars.env_id,
+	"Region": vars.region,
+	"Queues": vars.queueCount map (if($.messages >= p('platform.threshold')  or $.inflightMessages >= p('platform.threshold')) $ else null) filter ((item, index) -> item != null)
+}	
+]]></ee:set-payload>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="queueCount"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+							<logger level="INFO" doc:name="Log Queue names" doc:id="d6cef8b9-2c26-4b97-8cdc-55d4ca9eb6e0" message='#[" QUEUES HOLDING MESSAGES GREATER THAN THRESTHOLD :: "]' />
+								<logger level="INFO" doc:name="Queue names" doc:id="f8871d6f-b4e7-4934-b71a-39d962d2b514" message='#[payload.Queues.destination]'/>
+								<logger level="INFO" doc:name="End Logger" doc:id="8e6949b0-3e38-4858-b25e-00f82e0a4f55" message='#[" BusinessGroup: " ++ vars.businessGroupId ++ " Environment: " ++ vars.env_id]' />
+								<logger level="INFO" doc:name="Log Region" doc:id="55163ce3-9bc4-4fe4-8d92-8f23e7da5f56" message='#[" Region: " ++ vars.region]'/>
+								<async doc:name="Async" doc:id="ead07625-bb42-478a-b189-e9c06f73e948">
+									<try doc:name="Try" doc:id="60abef73-d075-4fbd-9267-720c9d8b19d6">
+											<raise-error doc:name="Raise error" doc:id="f9df1ba6-4837-4abf-aa8a-4fddfba71c06" type="ANYPOINT-MQ:DEPTH_EXCEEDED" description='#[" QUEUES HOLDING MESSAGES GREATER THAN THRESHOLD :: " ++ write(payload,"appliction/json") as String ++ " BusinessGroup: " ++ vars.businessGroupId ++ " Environment: " ++ vars.env_id ++ " Region: " ++ vars.region]' />
+											<error-handler>
+												<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="621164fa-a02c-49f9-b590-917a38da3595">
+													<logger level="INFO" doc:name="Logger" doc:id="5be9dd98-d229-4b96-9ca0-bda952a676d3" />
+												</on-error-propagate>
+											</error-handler>
+									</try>
+									</async>
+						</when>
+					</choice>
+				</otherwise>
+			</choice>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="queue_messages_count" doc:id="a75ecca1-f97c-4a90-8571-3f0ae64fddbf" >
+		<ee:transform doc:name="QueueNames to String" doc:id="55ad00fa-3a8e-4afe-9c84-9703313befaf" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="queue_names" ><![CDATA[%dw 2.0
+output application/json
+var sample = {
+    (payload.queueId map (id,indexOfId)->{
+        (indexOfId):id
+    })
+}
+---
+(write(sample, "application/csv", "header":false) as String) replace "\n" with ""]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="GET" doc:name="Queue Count" doc:id="83139da9-ead0-4406-b923-80a97bf4155c" config-ref="HTTP_Platform_Request_Config" path="/mq/stats/api/v1/organizations/{orgId}/environments/{env_id}/regions/{region}/queues?destinationIds={queue_names}" >
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.queue_token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"orgId" : vars.businessGroupId,
+	"queue_names" : vars.queue_names,
+	"region" : vars.region,
+	"env_id" : vars.env_id
+}]]]></http:uri-params>
+		</http:request><logger level="INFO" doc:name="Logger" doc:id="4e41cf0b-e8bc-4b08-852f-a3bd8e5b59fa" message="#[payload]"/>
+		<ee:transform doc:name="Filter Queues based on MSG Count" doc:id="a4ed8bb4-36bc-49bb-81fd-9752f8766ce9">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"BusinessGroup": vars.businessGroupId,
+	"Environment": vars.env_id,
+	"Region": vars.region,
+	"Queues": payload map (if($.messages > 0  or $.inflightMessages > 0) $ else null) filter ((item, index) -> item != null) 
+}	
+]]></ee:set-payload>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="queueCount"><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+	</sub-flow>
+</mule>

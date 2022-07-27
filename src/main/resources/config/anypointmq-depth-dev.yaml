@@ -1,0 +1,21 @@
+autodiscovery:
+  id: ""
+  
+https:
+  port: "8082"
+  
+output:
+  path: "null"
+    
+platform:
+  host: "anypoint.mulesoft.com"
+  port: "443"
+  username: "changeme"
+  password: "changeme"
+  client_id: "changeme"
+  client_secret: "changeme"
+  regions: ["us-west-2","us-east-1"]
+  schedule_time: "15"
+  threshold: "2"
+  frequency: "3000"
+  reconnection: "3"

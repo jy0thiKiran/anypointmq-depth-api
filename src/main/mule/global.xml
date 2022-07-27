@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	
+	<http:request-config name="HTTP_Platform_Request_Config" doc:name="HTTP Platform Request Configuration" doc:id="cba8b7ff-ff0a-48ab-b710-20f39127d9fa" enableCookies="false">
+        <http:request-connection host="${platform.host}" port="${platform.port}" protocol="HTTPS">
+            <reconnection>
+                <reconnect frequency="3000" count="3" />
+            </reconnection>
+        </http:request-connection>
+    </http:request-config>
+        <global-property doc:name="Global Property" doc:id="cd526b9d-98cb-4ecb-a100-d2d220beff8c" name="mule.env" value="dev" />
+        <configuration-properties doc:name="Application_Configuration_Properties" doc:id="f51964d8-d98b-405b-a7ac-b341ad694616" file="config/anypointmq-depth-${mule.env}.yaml" />
+    
+</mule>
