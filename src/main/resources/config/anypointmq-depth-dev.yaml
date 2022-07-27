@@ -1,0 +1,21 @@
+autodiscovery:
+  id: ""
+  
+https:
+  port: "8082"
+  
+output:
+  path: "null"
+    
+platform:
+  host: "anypoint.mulesoft.com"
+  port: "443"
+  username: "jkiran_mulesoft"
+  password: "Developer.5"
+  client_id: "c51a46274ee841ec82a25479bbceed7f"
+  client_secret: "1D52C6B47E88446195Cb3166dC5A9554"
+  regions: ["us-west-2","us-east-1"]
+  schedule_time: "15"
+  threshold: "2"
+  frequency: "3000"
+  reconnection: "3"
