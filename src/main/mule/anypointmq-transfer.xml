@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:json="http://www.mulesoft.org/schema/mule/json"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	
+	<flow name="anypointmq-transfer">
+		<http:listener doc:name="Listener" doc:id="26bd3bfa-d9c9-4f6e-b597-563097325b82" config-ref="HTTP_Listener_config" path="/amq/transfer"/>
+		<logger level="INFO" doc:name="Logger" doc:id="4d861c16-5ab3-4402-8926-8210aabeea10" message="#[attributes]"/>
+		<ee:transform doc:name="set Request Msg" doc:id="fd761541-531e-40e9-88d6-482cf5b995bf" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="reqQueueInfo" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="LookUp AMQ" doc:id="1c189a85-acef-4ad3-b31d-f8c39af0a8fa">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+---
+read("[" ++ repeat("{},",vars.reqQueueInfo.messageAmount - 1) ++ "{} ]","application/json")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<try doc:name="Try" doc:id="80d59abd-68c1-43f2-aaa3-c79f8b3bcf1a">
+			<foreach doc:name="For Each" doc:id="5c1f4b0e-a914-4ec0-b703-1e85ea2ac702" collection="#[payload]">
+				<anypoint-mq:consume doc:name="Consume" doc:id="8fb04417-3c00-4e7c-a908-789973ae2151" config-ref="Anypoint_MQ_Config" destination="#[vars.reqQueueInfo.sourceQueue]" acknowledgementMode="MANUAL" >
+					<reconnect frequency="${platform.frequency}" count="${platform.reconnection}" />
+				</anypoint-mq:consume>
+				<set-variable value="#[payload]" doc:name="Set queueMessage" doc:id="13f0a133-6a78-48f7-b557-7151b5008de7" variableName="queueMessage" />
+				<set-variable value="#[attributes.properties]" doc:name="Set queueAttributes" doc:id="8669512a-558a-4560-8325-546e0c0e0f85" variableName="queueProperties" />
+				<set-variable value="#[attributes.ackToken]" doc:name="Set ackToken" doc:id="f529ff1c-2b58-4066-ae29-05afa0d54ac7" variableName="ackToken" />
+				<logger level="INFO" doc:name="Logger" doc:id="33bf88c2-a506-4be8-a898-de4291acfee1" message="#[payload]" />
+				<anypoint-mq:publish doc:name="Publish" doc:id="dfbcec60-234b-4bc0-bb77-11539eebe0ee" config-ref="Anypoint_MQ_Config" destination="#[vars.reqQueueInfo.destinationQueue]">
+			<reconnect frequency="${platform.frequency}" count="${platform.reconnection}" />
+					<anypoint-mq:body><![CDATA[#[vars.queueMessage]]]></anypoint-mq:body>
+			<anypoint-mq:properties><![CDATA[#[vars.queueProperties]]]></anypoint-mq:properties>
+		</anypoint-mq:publish>
+				<anypoint-mq:ack doc:name="Ack" doc:id="a18ae24a-72e9-4b2e-985c-f29f4bf32c85" config-ref="Anypoint_MQ_Config" ackToken="#[vars.ackToken]" >
+					<reconnect frequency="${platform.frequency}" count="${platform.reconnection}" />
+				</anypoint-mq:ack>
+		</foreach>
+			<ee:transform doc:name="Message count" doc:id="baf445dd-b599-4989-bfb5-0b23d90edf40" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{ 
+"messagesMoved": vars.reqQueueInfo.messageAmount
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<error-handler>
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="ca6f820f-03fa-48f8-aead-f3962ef2a551" type="ANYPOINT-MQ:RETRY_EXHAUSTED, ANYPOINT-MQ:TIMEOUT">
+					<ee:transform doc:name="message count" doc:id="7e6fabe6-fa6d-401b-ac8a-404c41ee08b1">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ 
+"messagesMoved": vars.counter -1
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				</on-error-continue>
+			</error-handler>
+		</try>
+    </flow>
+	</mule>
