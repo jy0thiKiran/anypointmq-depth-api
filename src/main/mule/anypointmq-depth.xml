@@ -25,11 +25,11 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
     </flow>
 	
 	<flow name="anypointmq-depth-Flow" doc:id="8424f034-9060-44c3-b0be-26d88f133488" >
-		<scheduler doc:name="Scheduler" doc:id="2ce46bf1-78fb-473a-99aa-3db14f98ea9c" doc:description="Scheduler can be disable for testing listener flow testing purpose.">
+		<!-- [STUDIO:"Scheduler"]		<scheduler doc:name="Scheduler" doc:id="2ce46bf1-78fb-473a-99aa-3db14f98ea9c" doc:description="Scheduler can be disable for testing listener flow testing purpose.">
 			<scheduling-strategy >
 				<fixed-frequency frequency="${platform.schedule_time}" timeUnit="MINUTES" />
 			</scheduling-strategy>
-		</scheduler>
+		</scheduler> [STUDIO] -->
 		<logger level="INFO" doc:name="Log time" doc:id="f0233437-5953-45d0-ae3a-8b7747eafe1a" message="Schedule started at: #[now()]" />
 		<flow-ref doc:name="anypointmq-depth-start" doc:id="71c9c369-b383-4029-bc3c-105684d0da0f" name="anypointmq-depth-start" />
 		<logger level="INFO" doc:name="End" doc:id="8831754f-6819-4359-824a-c65b87ced2fc" message="End of the Flow"/>
