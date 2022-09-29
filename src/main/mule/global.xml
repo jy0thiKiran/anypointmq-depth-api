@@ -14,5 +14,6 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
     </http:request-config>
         <global-property doc:name="Global Property" doc:id="cd526b9d-98cb-4ecb-a100-d2d220beff8c" name="mule.env" value="dev" />
         <configuration-properties doc:name="Application_Configuration_Properties" doc:id="f51964d8-d98b-405b-a7ac-b341ad694616" file="config/anypointmq-depth-${mule.env}.yaml" />
-    
+            <anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="45df0813-d616-4038-9829-83f11ad2ae5b" >
+		<anypoint-mq:connection clientId="#[vars.client_app.id]" clientSecret="#[vars.client_app.secret]"/>
 </mule>
