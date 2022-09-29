@@ -22,6 +22,13 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 output application/json
 ---
 payload]]></ee:set-variable>
+				<ee:set-variable variableName="client_app" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+"id": attributes.headers.client_app_id,
+"secret": attributes.headers.client_app_secret
+}]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 		<ee:transform doc:name="LookUp AMQ" doc:id="1c189a85-acef-4ad3-b31d-f8c39af0a8fa">
